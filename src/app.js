@@ -16,8 +16,23 @@ app.use(express.json());
 // Serve uploaded files
 app.use("/uploads", express.static(path.resolve("uploads")));
 
+const allowedOrigins = (process.env.CLIENT_ORIGIN || "")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+
 const corsOptions = {
-  origin: process.env.CLIENT_ORIGIN || "http://localhost:3000",
+  origin: (origin, callback) => {
+    // Allow non-browser clients (curl/postman) and same-origin requests.
+    if (!origin) return callback(null, true);
+
+    // If no explicit allow-list is set, allow all origins.
+    if (allowedOrigins.length === 0) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error(`CORS blocked for origin: ${origin}`));
+  },
+  credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
 };
