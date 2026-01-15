@@ -18,7 +18,7 @@ app.use("/uploads", express.static(path.resolve("uploads")));
 
 const allowedOrigins = (process.env.CLIENT_ORIGIN || "")
   .split(",")
-  .map((o) => o.trim())
+  .map((o) => o.trim().replace(/\/+$/, ""))
   .filter(Boolean);
 
 const corsOptions = {
@@ -26,10 +26,12 @@ const corsOptions = {
     // Allow non-browser clients (curl/postman) and same-origin requests.
     if (!origin) return callback(null, true);
 
+    const normalizedOrigin = origin.replace(/\/+$/, "");
+
     // If no explicit allow-list is set, allow all origins.
     if (allowedOrigins.length === 0) return callback(null, true);
 
-    if (allowedOrigins.includes(origin)) return callback(null, true);
+    if (allowedOrigins.includes(normalizedOrigin)) return callback(null, true);
     return callback(new Error(`CORS blocked for origin: ${origin}`));
   },
   credentials: true,
