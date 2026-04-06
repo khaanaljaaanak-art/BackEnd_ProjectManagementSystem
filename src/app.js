@@ -63,6 +63,10 @@ const connectDB = async () => {
     throw new Error("MONGO_URI is missing. Check your .env file.");
   }
 
+  if (!process.env.JWT_SECRET) {
+    throw new Error("JWT_SECRET is missing. Configure it in environment variables.");
+  }
+
   await mongoose.connect(process.env.MONGO_URI, {
     serverSelectionTimeoutMS: 10000,
   });
