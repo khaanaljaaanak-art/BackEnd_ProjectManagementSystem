@@ -86,6 +86,7 @@ export const getAssessmentStatus = async (req, res) => {
 export const getMarksWithRubrics = async (req, res) => {
   try {
     const submissions = await Submission.find({ student: req.user.id })
+      .populate("grades.evaluator", "name email role")
       .populate({
         path: "assessment",
         select: "title project deadline extendedDeadline",

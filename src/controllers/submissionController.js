@@ -48,7 +48,7 @@ export const submitAssessment = async (req, res) => {
     }
 
     const project = await Project.findById(assessment.project).select(
-      "approved status"
+      "approved status supervisors"
     );
     if (!project || !project.approved || project.status !== "available") {
       return res.status(403).json({ message: "Project is not available for submission" });
@@ -69,6 +69,17 @@ export const submitAssessment = async (req, res) => {
     let isResubmission = false;
 
     if (existing) {
+      const alreadyGraded =
+        existing.status === "graded" ||
+        existing.marks !== null ||
+        (Array.isArray(existing.grades) && existing.grades.length > 0);
+
+      if (alreadyGraded) {
+        return res.status(400).json({
+          message: "Resubmission is not allowed after supervisor grading.",
+        });
+      }
+
       isResubmission = true;
       revisionVersion = (existing.attemptCount || 1) + 1;
       existing.fileUrl = normalizedFileUrls[0] || "";
@@ -77,8 +88,6 @@ export const submitAssessment = async (req, res) => {
       existing.attemptCount = revisionVersion;
       existing.lastSubmittedAt = new Date();
       existing.submittedAt = existing.submittedAt || new Date();
-      existing.marks = null;
-      existing.feedback = "";
       submission = await existing.save();
     } else {
       submission = await Submission.create({
@@ -153,7 +162,9 @@ export const getMySubmissionForAssessment = async (req, res) => {
     const submission = await Submission.findOne({
       assessment: assessmentId,
       student: req.user.id,
-    }).populate("assessment", "title deadline extendedDeadline");
+    })
+      .populate("assessment", "title deadline extendedDeadline")
+      .populate("grades.evaluator", "name email role");
 
     if (!submission) {
       return res.status(404).json({ message: "No submission found" });
@@ -173,7 +184,8 @@ export const getSubmissionsByAssessment = async (req, res) => {
     const { assessmentId } = req.params;
 
     const submissions = await Submission.find({ assessment: assessmentId })
-      .populate("student", "name email");
+      .populate("student", "name email")
+      .populate("grades.evaluator", "name email role");
 
     res.json(submissions);
   } catch (error) {
@@ -189,15 +201,59 @@ export const gradeSubmission = async (req, res) => {
     const { submissionId } = req.params;
     const { marks, feedback } = req.body;
 
-    const submission = await Submission.findByIdAndUpdate(
-      submissionId,
-      { marks, feedback, status: "graded" },
-      { new: true }
+    const normalizedMarks = Number(marks);
+    if (Number.isNaN(normalizedMarks)) {
+      return res.status(400).json({ message: "Valid marks are required" });
+    }
+
+    const submission = await Submission.findById(submissionId).populate(
+      "assessment",
+      "project"
     );
 
     if (!submission) {
       return res.status(404).json({ message: "Submission not found" });
     }
+
+    if (req.user.role === "supervisor") {
+      const hasAccess = await Project.exists({
+        _id: submission.assessment?.project,
+        supervisors: req.user.id,
+      });
+
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied for this submission" });
+      }
+    }
+
+    const existingGrades = Array.isArray(submission.grades) ? submission.grades : [];
+    const alreadyGradedByCurrentUser = existingGrades.some(
+      (grade) => String(grade.evaluator) === String(req.user.id)
+    );
+
+    if (alreadyGradedByCurrentUser) {
+      return res.status(409).json({
+        message: "You have already graded this submission once and cannot update it again.",
+      });
+    }
+
+    submission.grades.push({
+      evaluator: req.user.id,
+      evaluatorRole: req.user.role,
+      marks: normalizedMarks,
+      feedback: feedback || "",
+      gradedAt: new Date(),
+    });
+
+    submission.status = "graded";
+
+    // Keep backward-compatible aggregate fields used by existing views.
+    if (submission.marks === null || submission.marks === undefined) {
+      submission.marks = normalizedMarks;
+      submission.feedback = feedback || "";
+    }
+
+    await submission.save();
 
     const lastRevision = await SubmissionRevision.findOne({ submission: submission._id })
       .sort({ version: -1 })
@@ -212,9 +268,9 @@ export const gradeSubmission = async (req, res) => {
       changeType: "grade_update",
       fileUrl: submission.fileUrl,
       fileUrls: submission.fileUrls,
-      marks: submission.marks,
-      feedback: submission.feedback,
-      note: "Supervisor updated marks/feedback",
+      marks: normalizedMarks,
+      feedback: feedback || "",
+      note: "Supervisor submitted marks/feedback",
     });
 
     await Notification.create({
@@ -224,7 +280,7 @@ export const gradeSubmission = async (req, res) => {
       message: "Your submission has been graded with feedback.",
       data: {
         submissionId: submission._id,
-        marks,
+        marks: normalizedMarks,
       },
     });
 
@@ -234,7 +290,7 @@ export const gradeSubmission = async (req, res) => {
       action: "submission.grade",
       targetType: "submission",
       targetId: submission._id,
-      meta: { marks },
+      meta: { marks: normalizedMarks },
     });
 
     res.json(submission);

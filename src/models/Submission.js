@@ -48,6 +48,35 @@ const submissionSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    grades: {
+      type: [
+        {
+          evaluator: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            required: true,
+          },
+          evaluatorRole: {
+            type: String,
+            enum: ["supervisor", "admin"],
+            required: true,
+          },
+          marks: {
+            type: Number,
+            required: true,
+          },
+          feedback: {
+            type: String,
+            default: "",
+          },
+          gradedAt: {
+            type: Date,
+            default: Date.now,
+          },
+        },
+      ],
+      default: [],
+    },
   },
   { timestamps: true }
 );
