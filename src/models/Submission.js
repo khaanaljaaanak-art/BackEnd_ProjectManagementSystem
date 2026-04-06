@@ -26,6 +26,20 @@ const submissionSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    status: {
+      type: String,
+      enum: ["submitted", "graded"],
+      default: "submitted",
+    },
+    attemptCount: {
+      type: Number,
+      default: 1,
+      min: 1,
+    },
+    lastSubmittedAt: {
+      type: Date,
+      default: Date.now,
+    },
     marks: {
       type: Number,
       default: null,

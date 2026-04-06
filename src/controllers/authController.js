@@ -6,6 +6,10 @@ export const registerUser = async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
 
+    if (role === "admin") {
+      return res.status(403).json({ message: "Admin accounts can only be created by admin" });
+    }
+
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ message: "User already exists" });
@@ -17,7 +21,7 @@ export const registerUser = async (req, res) => {
       name,
       email,
       password: hashedPassword,
-      role,
+      role: role || "student",
     });
 
     res.status(201).json({ message: "User registered successfully" });

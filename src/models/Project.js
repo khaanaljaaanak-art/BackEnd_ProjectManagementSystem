@@ -21,6 +21,19 @@ const projectSchema = new mongoose.Schema(
       enum: ["available", "unavailable"],
       default: "available",
     },
+    approved: {
+      type: Boolean,
+      default: false,
+    },
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    approvedAt: {
+      type: Date,
+      default: null,
+    },
     selectedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

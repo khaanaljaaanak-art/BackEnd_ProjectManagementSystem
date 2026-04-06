@@ -7,6 +7,10 @@ import authRoutes from "./routes/authRoutes.js";
 import projectRoutes from "./routes/projectRoutes.js";
 import assessmentRoutes from "./routes/assessmentRoutes.js";
 import submissionRoutes from "./routes/submissionRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
+import disputeRoutes from "./routes/disputeRoutes.js";
+import supervisorRoutes from "./routes/supervisorRoutes.js";
+import studentRoutes from "./routes/studentRoutes.js";
 
 dotenv.config({ path: path.resolve("../.env") });
 
@@ -47,6 +51,10 @@ app.use("/api/auth", authRoutes);
 app.use("/api/projects", projectRoutes);
 app.use("/api/assessments", assessmentRoutes);
 app.use("/api/submissions", submissionRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/disputes", disputeRoutes);
+app.use("/api/supervisor", supervisorRoutes);
+app.use("/api/student", studentRoutes);
 
 const PORT = process.env.PORT || 5000;
 
